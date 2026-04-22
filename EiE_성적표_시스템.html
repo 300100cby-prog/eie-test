@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EiE 고려대학교 국제어학원 성적표 시스템</title>
+<script>/*! xlsx.js shim - loaded from CDN */</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Noto Sans KR',sans-serif;background:#f0f0ec;color:#1a1a1a;min-height:100vh}
+
+/* ── LAYOUT ── */
+.app{max-width:1060px;margin:0 auto;padding:24px 16px}
+
+/* ── HEADER ── */
+.header{background:#1a1a1a;color:#fff;border-radius:12px;padding:22px 32px;margin-bottom:20px;display:flex;align-items:center;gap:20px}
+.eie-logo{display:flex;align-items:baseline;font-family:Georgia,serif;font-style:italic;font-weight:900;font-size:34px;letter-spacing:-2px;background:#c0392b;border-radius:8px;padding:6px 16px;line-height:1}
+.eie-logo .small{font-size:24px}
+.header h1{font-size:18px;font-weight:700;margin-bottom:2px}
+.header p{font-size:12px;color:rgba(255,255,255,0.55)}
+
+/* ── STEPS ── */
+.steps{display:flex;gap:6px;margin-bottom:20px;overflow-x:auto}
+.step{padding:9px 18px;border-radius:100px;font-size:13px;font-weight:500;background:#fff;border:1.5px solid #ddd;color:#aaa;white-space:nowrap;flex-shrink:0;display:flex;align-items:center;gap:7px}
+.step.active{background:#1a1a1a;border-color:#1a1a1a;color:#fff}
+.step.done{background:#f5f5f0;border-color:#ccc;color:#333;font-weight:700}
+.step-num{width:18px;height:18px;border-radius:50%;background:currentColor;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}
+.step.active .step-num{background:#c0392b;color:#fff}
+.step.done .step-num{background:#c0392b;color:#fff}
+
+/* ── CARD ── */
+.card{background:#fff;border-radius:12px;border:1px solid #e0e0dc;padding:24px;margin-bottom:16px}
+.card-title{font-size:14px;font-weight:700;color:#1a1a1a;margin-bottom:16px;display:flex;align-items:center;gap:8px;padding-bottom:12px;border-bottom:2px solid #f0f0ec}
+.card-title::before{content:'';width:4px;height:16px;background:#c0392b;border-radius:2px}
+
+/* ── UPLOAD ── */
+.upload-zone{border:2px dashed #ccc;border-radius:10px;padding:36px;text-align:center;cursor:pointer;transition:all .2s;background:#fafaf8;user-select:none}
+.upload-zone:hover,.upload-zone.hover{border-color:#c0392b;background:#fff5f5}
+.upload-zone.drag{border-color:#1a1a1a;background:#f5f5f5}
+.upload-icon{font-size:36px;margin-bottom:10px}
+.upload-text{font-size:14px;color:#555;margin-bottom:4px;font-weight:500}
+.upload-hint{font-size:12px;color:#aaa}
+.upload-ok{display:flex;align-items:center;gap:10px;padding:12px 16px;background:#f0faf4;border:1px solid #b2dfcc;border-radius:8px;margin-top:12px}
+.upload-ok .icon{font-size:18px}
+.upload-ok .name{font-size:13px;font-weight:600;color:#1a7a4a}
+.upload-ok .sub{font-size:11px;color:#555;margin-top:1px}
+
+/* ── SELECTORS ── */
+.sel-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.sel-group{display:flex;flex-direction:column;gap:5px}
+.sel-group label{font-size:11px;font-weight:600;color:#888;letter-spacing:0.5px;text-transform:uppercase}
+.sel-group select,.sel-group input[type=text],.sel-group input[type=number]{padding:8px 12px;border:1.5px solid #e0e0dc;border-radius:8px;font-size:13px;font-family:'Noto Sans KR',sans-serif;background:#fff;color:#1a1a1a;outline:none;transition:border .15s}
+.sel-group select:focus,.sel-group input:focus{border-color:#1a1a1a}
+
+/* ── CLASS BUTTONS ── */
+.class-btns{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}
+.cls-btn{padding:8px 18px;border-radius:100px;border:1.5px solid #ddd;background:#fff;font-size:13px;font-weight:500;cursor:pointer;color:#777;transition:all .12s;font-family:'Noto Sans KR',sans-serif}
+.cls-btn:hover{border-color:#1a1a1a;color:#1a1a1a}
+.cls-btn.active{background:#1a1a1a;border-color:#1a1a1a;color:#fff}
+
+/* ── SCORING TABLE ── */
+.score-table{width:100%;border-collapse:collapse}
+.score-table th{background:#1a1a1a;color:#fff;padding:8px 10px;font-size:11px;font-weight:500;text-align:center}
+.score-table th:first-child{text-align:left;border-radius:6px 0 0 0}
+.score-table th:last-child{border-radius:0 6px 0 0}
+.score-table td{padding:8px 10px;border-bottom:1px solid #f0f0ec;font-size:12px;vertical-align:middle;text-align:center}
+.score-table td:nth-child(2){text-align:left;font-weight:500}
+.score-table tr:last-child td{border-bottom:none}
+.score-table tr:hover td{background:#fafaf8}
+
+/* ── OX GRID ── */
+.ox-grid{display:flex;gap:3px;flex-wrap:wrap}
+.ox-cell{width:30px;height:30px;border-radius:6px;border:1.5px solid #e0e0dc;background:#fff;cursor:pointer;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;transition:all .1s;color:#ccc;position:relative;flex-direction:column}
+.ox-cell .qn{font-size:7px;color:#bbb;font-weight:400;line-height:1;margin-bottom:1px}
+.ox-cell:hover{border-color:#1a1a1a;color:#1a1a1a}
+.ox-cell.correct{background:#e8f5f0;border-color:#27ae60;color:#27ae60}
+.ox-cell.wrong{background:#fdecea;border-color:#c0392b;color:#c0392b}
+
+/* ── BUTTONS ── */
+.btn{padding:10px 20px;border-radius:8px;border:none;font-family:'Noto Sans KR',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:all .12s;display:inline-flex;align-items:center;gap:6px}
+.btn-dark{background:#1a1a1a;color:#fff}
+.btn-dark:hover{background:#333}
+.btn-red{background:#c0392b;color:#fff}
+.btn-red:hover{background:#a93226}
+.btn-outline{background:#fff;color:#1a1a1a;border:1.5px solid #1a1a1a}
+.btn-outline:hover{background:#f5f5f5}
+.btn-sm{padding:7px 14px;font-size:11px;border-radius:6px}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.hidden{display:none!important}
+
+/* ── NOTICE ── */
+.notice{background:#fffdf5;border:1px solid #f0d890;border-radius:8px;padding:10px 14px;font-size:12px;color:#7a6020;margin-bottom:14px;display:flex;gap:8px;align-items:flex-start}
+
+/* ── TOGGLE ── */
+.toggle-group{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}
+.tog{display:flex;align-items:center;gap:5px;padding:6px 12px;border-radius:100px;border:1.5px solid #ddd;cursor:pointer;font-size:11px;font-weight:600;user-select:none;transition:all .12s;color:#888}
+.tog input{display:none}
+.tog.on{background:#1a1a1a;border-color:#1a1a1a;color:#fff}
+
+/* ════════════════════════════════════════
+   EiE 성적표 스타일 (이미지 그대로)
+════════════════════════════════════════ */
+.report-wrap{background:#fff;max-width:740px;margin:0 auto 24px;border-radius:0;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
+.page-sep{height:32px;border-top:2px dashed #ddd;margin:28px 0;background:transparent}
+
+/* ── PRINT ── */
+@page{size:A4 portrait;margin:8mm 10mm}
+@media print{
+  body{background:#fff!important}
+  .no-print{display:none!important}
+  .app{padding:0;max-width:100%}
+  .report-wrap{box-shadow:none!important;margin:0 auto!important;border-radius:0!important}
+  .page-sep{page-break-before:always;border:none;height:0;margin:0}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ── HEADER ── -->
+<div class="header no-print">
+  <div class="eie-logo" style="color:#fff">E<span class="small">i</span>E</div>
+  <div>
+    <h1>EiE 고려대학교 국제어학원 성적표 시스템</h1>
+    <p>엑셀 명단 업로드 → O/X 채점 → EiE 스타일 성적표 자동 생성 · 인쇄</p>
+  </div>
+</div>
+
+<!-- ── STEPS ── -->
+<div class="steps no-print" id="stepsBar">
+  <div class="step active" id="tab1"><span class="step-num">1</span> 명단 업로드</div>
+  <div class="step" id="tab2"><span class="step-num">2</span> 반 · 시험 설정</div>
+  <div class="step" id="tab3"><span class="step-num">3</span> O/X 채점</div>
+  <div class="step" id="tab4"><span class="step-num">4</span> 성적표 출력</div>
+</div>
+
+<!-- ══════════════════════════════
+     STEP 1: 업로드
+══════════════════════════════ -->
+<div id="step1" class="no-print">
+  <div class="card">
+    <div class="card-title">명단 엑셀 파일 업로드</div>
+    <div class="notice">ℹ️ &nbsp;엑셀 형식: <b>A열=이름, B열=학년, C열=반</b> (반학년별명단.xlsx 그대로 사용)</div>
+    <div class="upload-zone" id="dropZone">
+      <div class="upload-icon">📂</div>
+      <div class="upload-text">클릭하거나 파일을 여기에 끌어다 놓으세요</div>
+      <div class="upload-hint">반학년별명단.xlsx / .xls 지원</div>
+    </div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none">
+    <div id="uploadOk" class="hidden upload-ok">
+      <span class="icon">✅</span>
+      <div>
+        <div class="name" id="okName"></div>
+        <div class="sub" id="okSub"></div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-dark" id="toStep2Btn" onclick="goStep(2)" disabled style="opacity:0.4">다음 단계 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     STEP 2: 반 · 시험 설정
+══════════════════════════════ -->
+<div id="step2" class="hidden no-print">
+  <div class="card">
+    <div class="card-title">시험 · 반 설정</div>
+    <div class="sel-row">
+      <div class="sel-group">
+        <label>학년 선택</label>
+        <select id="gradeSelect" onchange="updateClassBtns()">
+          <option value="">-- 학년 --</option>
+        </select>
+      </div>
+      <div class="sel-group">
+        <label>시험명</label>
+        <input type="text" id="examName" value="중등수능모의고사" style="width:200px">
+      </div>
+      <div class="sel-group">
+        <label>월 (예: 2월)</label>
+        <input type="text" id="examMonth" value="2월" style="width:80px">
+      </div>
+      <div class="sel-group">
+        <label>전체 문항 수</label>
+        <input type="number" id="totalQ" value="40" min="10" max="100" style="width:80px" onchange="buildScoreMap();rebuildScoring()">
+      </div>
+      <div class="sel-group">
+        <label>듣기 문항 수</label>
+        <input type="number" id="listenQ" value="17" min="0" max="80" style="width:80px" onchange="buildScoreMap();rebuildScoring()">
+      </div>
+    </div>
+    <div style="margin-bottom:10px;font-size:12px;font-weight:600;color:#888;letter-spacing:0.4px">반 선택</div>
+    <div class="class-btns" id="classBtns"></div>
+    <div style="margin-bottom:10px;font-size:12px;font-weight:600;color:#888;letter-spacing:0.4px">배점 설정 <span style="font-weight:400;color:#aaa">(3점 문항 번호, 쉼표 구분)</span></div>
+    <input type="text" id="q3nums" value="9,11,13,15,16,17,22,23,24,25,27,28,30,31,33,34,35,36,39,40"
+      style="width:100%;padding:8px 12px;border:1.5px solid #e0e0dc;border-radius:8px;font-size:12px;font-family:'Noto Sans KR',sans-serif"
+      onchange="buildScoreMap();recalcAll()">
+    <div class="btn-row">
+      <button class="btn btn-outline btn-sm" onclick="goStep(1)">← 이전</button>
+      <button class="btn btn-dark" id="toStep3Btn" onclick="goStep(3)" disabled style="opacity:0.4">채점하기 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     STEP 3: O/X 채점
+══════════════════════════════ -->
+<div id="step3" class="hidden no-print">
+  <div class="card">
+    <div class="card-title" id="scoringTitle">O/X 채점</div>
+    <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px;padding:10px 14px;background:#f9f9f7;border-radius:8px;border:1px solid #e8e8e4;flex-wrap:wrap">
+      <div style="font-size:12px;color:#555;line-height:1.7">
+        <b style="color:#1a1a1a">채점 방법</b><br>
+        <span style="color:#27ae60;font-weight:700">① [전체 O] 버튼</span> 클릭 → 한 번에 전체 O<br>
+        <span style="color:#c0392b;font-weight:700">② 틀린 문항</span>만 클릭 → X로 전환 &nbsp;|&nbsp; X 다시 클릭 → O로 복원
+      </div>
+      <button class="btn btn-dark btn-sm" onclick="setAllO()" style="margin-left:auto;padding:10px 18px;font-size:13px">
+        ⚡ 전체 반 모두 O
+      </button>
+    </div>
+    <table class="score-table">
+      <thead><tr>
+        <th>번호</th><th>이름</th>
+        <th style="width:90px">개인 전체O</th>
+        <th id="sHdr">듣기 O/X</th>
+        <th id="rHdr">독해 O/X</th>
+        <th>듣기점</th><th>독해점</th><th>총점</th>
+      </tr></thead>
+      <tbody id="scoreTbody"></tbody>
+    </table>
+    <div class="btn-row">
+      <button class="btn btn-outline btn-sm" onclick="goStep(2)">← 이전</button>
+      <button class="btn btn-red" onclick="goStep(4)">성적표 보기 →</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════
+     STEP 4: 성적표 출력
+══════════════════════════════ -->
+<div id="step4" class="hidden">
+  <!-- 옵션 (화면 전용) -->
+  <div class="card no-print" id="step4ctrl">
+    <div class="card-title">출력 옵션</div>
+    <div class="toggle-group" id="optToggles">
+      <label class="tog on" id="tog-grade"><input type="checkbox" checked onchange="togOpt(this,'grade','tog-grade')">✓ 등급</label>
+      <label class="tog on" id="tog-rank"><input type="checkbox" checked onchange="togOpt(this,'rank','tog-rank')">✓ 반 석차</label>
+      <label class="tog on" id="tog-avg"><input type="checkbox" checked onchange="togOpt(this,'avg','tog-avg')">✓ 평균/편차</label>
+      <label class="tog on" id="tog-section"><input type="checkbox" checked onchange="togOpt(this,'section','tog-section')">✓ 듣기/독해 구분</label>
+      <label class="tog on" id="tog-detail"><input type="checkbox" checked onchange="togOpt(this,'detail','tog-detail')">✓ 문항 O/X 상세</label>
+      <label class="tog on" id="tog-qdes"><input type="checkbox" checked onchange="togOpt(this,'qdes','tog-qdes')">✓ 문항설명</label>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-outline btn-sm" onclick="goStep(3)">← 이전</button>
+      <button class="btn btn-dark" onclick="printIndiv()">🖨️ 개인별 인쇄</button>
+      <button class="btn btn-red" onclick="printClass()">📋 반 전체 인쇄</button>
+    </div>
+  </div>
+  <!-- 개인 성적표 -->
+  <div id="indivReports"></div>
+  <!-- 반 전체 성적표 -->
+  <div id="classReport"></div>
+</div>
+
+</div><!-- /app -->
+
+<script>
+// ═══════════════════════════════════════
+//  DATA
+// ═══════════════════════════════════════
+let students = [], grades = [], selectedGrade = '', selectedClass = '';
+let answers = {}, scoreMap = {};
+let opts = {grade:true, rank:true, avg:true, section:true, detail:true, qdes:true};
+
+// ═══════════════════════════════════════
+//  STEP NAVIGATION
+// ═══════════════════════════════════════
+function goStep(n){
+  [1,2,3,4].forEach(i=>{
+    document.getElementById('step'+i).classList.toggle('hidden', i!==n);
+    const t = document.getElementById('tab'+i);
+    t.classList.remove('active','done');
+    if(i===n) t.classList.add('active');
+    else if(i<n) t.classList.add('done');
+  });
+  if(n===3) renderScoring();
+  if(n===4) renderReports();
+}
+
+// ═══════════════════════════════════════
+//  UPLOAD  (단일 click 이벤트, 중복 없음)
+// ═══════════════════════════════════════
+(function(){
+  const zone = document.getElementById('dropZone');
+  const inp  = document.getElementById('fileInput');
+
+  zone.addEventListener('click', ()=> inp.click());
+  zone.addEventListener('dragover', e=>{ e.preventDefault(); zone.classList.add('drag'); });
+  zone.addEventListener('dragleave', ()=> zone.classList.remove('drag'));
+  zone.addEventListener('drop', e=>{
+    e.preventDefault(); zone.classList.remove('drag');
+    if(e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
+  });
+  inp.addEventListener('change', e=>{ if(e.target.files[0]) processFile(e.target.files[0]); });
+})();
+
+function processFile(file){
+  const reader = new FileReader();
+  reader.onload = e=>{
+    try{
+      const wb = XLSX.read(e.target.result, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const data = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      students = [];
+      data.forEach(row=>{
+        const name  = (row[0]||'').toString().trim();
+        const grade = (row[1]||'').toString().trim();
+        const cls   = (row[2]||'').toString().trim();
+        if(name && grade && cls) students.push({name, grade, cls});
+      });
+      grades = [...new Set(students.map(s=>s.grade))].sort();
+      answers = {}; students.forEach((_,i)=>{ answers[i]={}; });
+      document.getElementById('okName').textContent = file.name;
+      document.getElementById('okSub').textContent  = `총 ${students.length}명 / ${grades.join(', ')}`;
+      document.getElementById('uploadOk').classList.remove('hidden');
+      const btn = document.getElementById('toStep2Btn');
+      btn.disabled = false; btn.style.opacity = '1';
+      fillGradeSelect();
+    } catch(err){
+      alert('파일 오류: ' + err.message + '\n엑셀 형식(A=이름,B=학년,C=반)을 확인해주세요.');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ═══════════════════════════════════════
+//  STEP 2: 반 설정
+// ═══════════════════════════════════════
+function fillGradeSelect(){
+  const sel = document.getElementById('gradeSelect');
+  sel.innerHTML = '<option value="">-- 학년 --</option>';
+  grades.forEach(g=>{ const o=document.createElement('option'); o.value=g; o.textContent=g; sel.appendChild(o); });
+}
+
+function updateClassBtns(){
+  selectedGrade = document.getElementById('gradeSelect').value;
+  const classes = [...new Set(students.filter(s=>s.grade===selectedGrade).map(s=>s.cls))].sort();
+  const wrap = document.getElementById('classBtns');
+  wrap.innerHTML = '';
+  selectedClass = classes[0]||'';
+  classes.forEach(c=>{
+    const b=document.createElement('button');
+    b.className='cls-btn'+(c===selectedClass?' active':'');
+    b.textContent=c+'반'; b.dataset.cls=c;
+    b.onclick=()=>{
+      selectedClass=c;
+      document.querySelectorAll('.cls-btn').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+    };
+    wrap.appendChild(b);
+  });
+  const btn=document.getElementById('toStep3Btn');
+  btn.disabled=!selectedGrade; btn.style.opacity=selectedGrade?'1':'0.4';
+}
+
+// ═══════════════════════════════════════
+//  SCORE MAP (배점)
+// ═══════════════════════════════════════
+function buildScoreMap(){
+  const total = +document.getElementById('totalQ').value||40;
+  const q3str = document.getElementById('q3nums').value;
+  const q3set = new Set(q3str.split(',').map(x=>+x.trim()).filter(n=>n>0));
+  scoreMap = {};
+  for(let q=1;q<=total;q++) scoreMap[q] = q3set.has(q)?3:2;
+}
+
+function getSectionMax(total, listen){
+  let lMax=0, rMax=0;
+  for(let q=1;q<=total;q++){ const p=scoreMap[q]||2; if(q<=listen) lMax+=p; else rMax+=p; }
+  return {lMax, rMax, tMax:lMax+rMax};
+}
+
+buildScoreMap();
+
+// ═══════════════════════════════════════
+//  STEP 3: 채점
+// ═══════════════════════════════════════
+function getClassStudents(){
+  return students.map((s,i)=>({...s,idx:i}))
+    .filter(s=>s.grade===selectedGrade && s.cls===selectedClass);
+}
+
+function calcScore(idx, total, listen){
+  let l=0,r=0;
+  for(let q=1;q<=total;q++){
+    if(answers[idx]?.[q]==='O'){
+      const p=scoreMap[q]||2;
+      if(q<=listen) l+=p; else r+=p;
+    }
+  }
+  return {listen:l, read:r, total:l+r};
+}
+
+function renderScoring(){
+  const total = +document.getElementById('totalQ').value||40;
+  const listen= +document.getElementById('listenQ').value||17;
+  const cls = getClassStudents();
+  document.getElementById('scoringTitle').textContent =
+    `O/X 채점 — ${selectedGrade} ${selectedClass}반`;
+  document.getElementById('sHdr').textContent=`듣기 O/X (1~${listen}번)`;
+  document.getElementById('rHdr').textContent=`독해 O/X (${listen+1}~${total}번)`;
+
+  const tbody = document.getElementById('scoreTbody');
+  tbody.innerHTML = '';
+  cls.forEach(s=>{
+    const sc = calcScore(s.idx, total, listen);
+    const tr = document.createElement('tr');
+    const lCells = makeOxCells(s.idx, 1, listen);
+    const rCells = makeOxCells(s.idx, listen+1, total);
+    tr.innerHTML = `
+      <td style="color:#888;font-size:12px">${s.idx+1}</td>
+      <td style="font-weight:600">${s.name}</td>
+      <td>
+        <button class="all-o-btn" data-idx="${s.idx}"
+          style="padding:5px 10px;border-radius:6px;border:1.5px solid #27ae60;background:#e8f5f0;
+                 color:#1a7a4a;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;
+                 font-family:'Noto Sans KR',sans-serif;transition:all .12s"
+          onmouseover="this.style.background='#27ae60';this.style.color='#fff'"
+          onmouseout="this.style.background='#e8f5f0';this.style.color='#1a7a4a'"
+        >✓ 전체 O</button>
+      </td>
+      <td><div class="ox-grid" id="oxL${s.idx}">${lCells}</div></td>
+      <td><div class="ox-grid" id="oxR${s.idx}">${rCells}</div></td>
+      <td id="sl${s.idx}" style="font-size:13px">${sc.listen}</td>
+      <td id="sr${s.idx}" style="font-size:13px">${sc.read}</td>
+      <td id="st${s.idx}" style="font-weight:700;font-size:15px;color:#1a1a1a">${sc.total}</td>`;
+    tbody.appendChild(tr);
+
+    // 개인 전체 O 버튼
+    tr.querySelector('.all-o-btn').addEventListener('click', ()=>{
+      setStudentAllO(s.idx, total, listen);
+    });
+
+    // OX 셀: 빈칸/O → X 토글, X → O (틀린 것만 X 처리하는 방식)
+    tr.querySelectorAll('.ox-cell').forEach(cell=>{
+      cell.addEventListener('click', ()=>{
+        toggleWrong(cell, s.idx, +cell.dataset.q, total, listen);
+      });
+    });
+  });
+}
+
+function makeOxCells(idx, from, to){
+  let html='';
+  for(let q=from;q<=to;q++){
+    const v=answers[idx]?.[q]||'';
+    const cls2=v==='O'?'correct':v==='X'?'wrong':'';
+    html+=`<div class="ox-cell ${cls2}" data-q="${q}" title="${q}번 클릭=X/O 전환">
+      <span class="qn">${q}</span><span>${v||'·'}</span>
+    </div>`;
+  }
+  return html;
+}
+
+// ★ 핵심 변경: X ↔ O 토글 (빈칸이면 X로, O이면 X로, X이면 O로)
+// 즉, 전체O 누른 후 틀린 것만 클릭 → X, 실수로 X 눌렀으면 다시 클릭 → O
+function toggleWrong(cell, idx, q, total, listen){
+  const cur = answers[idx]?.[q]||'';
+  // 빈칸이나 O → X로 (틀린 표시)
+  // X → O로 (복원)
+  const next = cur==='X' ? 'O' : 'X';
+  answers[idx][q] = next;
+  cell.className='ox-cell'+(next==='O'?' correct':' wrong');
+  cell.querySelector('span:last-child').textContent = next;
+  updateRowScore(idx, total, listen);
+}
+
+// 학생 한 명 전체 O
+function setStudentAllO(idx, total, listen){
+  for(let q=1;q<=total;q++) answers[idx][q]='O';
+  // 셀 UI 업데이트
+  const allCells = document.querySelectorAll(`[id^="oxL${idx}"] .ox-cell, [id^="oxR${idx}"] .ox-cell`);
+  allCells.forEach(cell=>{
+    cell.className='ox-cell correct';
+    cell.querySelector('span:last-child').textContent='O';
+  });
+  updateRowScore(idx, total, listen);
+}
+
+// 전체 반 일괄 O
+function setAllO(){
+  const total = +document.getElementById('totalQ').value||40;
+  const listen= +document.getElementById('listenQ').value||17;
+  getClassStudents().forEach(s=>{
+    setStudentAllO(s.idx, total, listen);
+  });
+}
+
+function updateRowScore(idx, total, listen){
+  const sc=calcScore(idx,total,listen);
+  const sl=document.getElementById('sl'+idx);
+  const sr=document.getElementById('sr'+idx);
+  const st=document.getElementById('st'+idx);
+  if(sl) sl.textContent=sc.listen;
+  if(sr) sr.textContent=sc.read;
+  if(st) st.textContent=sc.total;
+}
+
+function recalcAll(){
+  const total=+document.getElementById('totalQ').value||40;
+  const listen=+document.getElementById('listenQ').value||17;
+  getClassStudents().forEach(s=>updateRowScore(s.idx,total,listen));
+}
+
+function rebuildScoring(){
+  if(document.getElementById('step3').classList.contains('hidden')) return;
+  renderScoring();
+}
+
+// ═══════════════════════════════════════
+//  GRADE BADGE
+// ═══════════════════════════════════════
+function getGrade(score){
+  if(score>=90) return '1등급';
+  if(score>=80) return '2등급';
+  if(score>=70) return '3등급';
+  if(score>=60) return '4등급';
+  return '5등급';
+}
+
+// ═══════════════════════════════════════
+//  OPTS TOGGLE
+// ═══════════════════════════════════════
+function togOpt(cb, key, id){
+  opts[key]=cb.checked;
+  const lbl=document.getElementById(id);
+  lbl.classList.toggle('on',cb.checked);
+  const txt=lbl.textContent.replace(/^[✓\s]+/,'').trim();
+  lbl.innerHTML=`<input type="checkbox" ${cb.checked?'checked':''} onchange="togOpt(this,'${key}','${id}')"> ${cb.checked?'✓ ':''}${txt}`;
+  lbl.querySelector('input').checked=cb.checked;
+  renderReports();
+}
+
+// ═══════════════════════════════════════
+//  STEP 4: REPORT GENERATION
+// ═══════════════════════════════════════
+function renderReports(){
+  const total = +document.getElementById('totalQ').value||40;
+  const listen= +document.getElementById('listenQ').value||17;
+  const cls = getClassStudents();
+  const scored = cls.map(s=>({...s,...calcScore(s.idx,total,listen)}))
+    .sort((a,b)=>b.total-a.total);
+  const totals = scored.map(s=>s.total);
+  const avg = totals.length? totals.reduce((a,b)=>a+b,0)/totals.length:0;
+  const std = totals.length? Math.sqrt(totals.reduce((a,b)=>a+(b-avg)**2,0)/totals.length):0;
+  const exam = (document.getElementById('examName').value||'EiE 수능모의고사');
+  const mon  = document.getElementById('examMonth').value||'';
+  const grade= selectedGrade;
+  const {lMax,rMax,tMax} = getSectionMax(total,listen);
+  const dateStr = new Date().toLocaleDateString('ko-KR');
+
+  // 개인 성적표
+  const indiv = document.getElementById('indivReports');
+  indiv.innerHTML = '';
+  scored.forEach((s,ri)=>{
+    const div = document.createElement('div');
+    div.className = ri>0?'page-sep':'';
+    indiv.appendChild(div);
+    const card = document.createElement('div');
+    card.className='report-wrap';
+    card.innerHTML = buildIndivHTML(s, ri+1, scored, total, listen, avg, std, lMax, rMax, tMax, exam, mon, grade, dateStr);
+    indiv.appendChild(card);
+    // Draw chart
+    setTimeout(()=> drawChart(s, lMax, rMax, tMax), 50);
+  });
+
+  // 반 전체
+  buildClassReport(scored, exam, mon, grade, total, listen, lMax, rMax, tMax, avg, std, dateStr);
+}
+
+// ─── 개인 성적표 HTML ─────────────────────────────────
+function buildIndivHTML(s, rank, scored, total, listen, avg, std, lMax, rMax, tMax, exam, mon, grade, dateStr){
+  let lCnt=0, rCnt=0;
+  for(let q=1;q<=total;q++){
+    if(answers[s.idx]?.[q]==='O'){ if(q<=listen) lCnt++; else rCnt++; }
+  }
+
+  // ── 헤더 (이미지 그대로) ──
+  const header = `
+  <div style="text-align:center;border-bottom:2.5px solid #1a1a1a;padding-bottom:8px;margin-bottom:10px">
+    <div style="font-size:16px;font-weight:700;letter-spacing:-0.3px;display:flex;align-items:center;justify-content:center;gap:6px">
+      <span style="font-family:Georgia,serif;font-style:italic;font-weight:900;color:#c0392b;font-size:22px;letter-spacing:-1.5px">E<span style="font-size:16px">i</span>E</span>
+      <span>고려대학교 국제어학원 ${grade} (${mon}) ${exam}</span>
+    </div>
+  </div>`;
+
+  // ── NAME / 등급 바 ──
+  const namebar = `
+  <div style="display:flex;align-items:stretch;margin-bottom:10px;border:1px solid #bbb">
+    <div style="padding:6px 14px;border-right:1px solid #bbb;font-size:11px;color:#888;display:flex;align-items:center;background:#f9f9f7">NAME</div>
+    <div style="padding:6px 22px;font-size:15px;font-weight:700;display:flex;align-items:center;min-width:130px">${s.name}</div>
+    <div style="flex:1"></div>
+    <div style="padding:6px 14px;border-left:1px solid #bbb;font-size:11px;color:#888;display:flex;align-items:center;background:#f9f9f7">등급</div>
+    <div style="padding:6px 22px;font-size:15px;font-weight:700;color:#c0392b;display:flex;align-items:center;min-width:72px;border-left:1px solid #bbb">
+      ${opts.grade ? getGrade(s.total) : ''}
+    </div>
+    ${opts.rank?`<div style="padding:6px 14px;font-size:12px;color:#4472C4;font-weight:700;display:flex;align-items:center;border-left:1px solid #bbb">${rank}위/${scored.length}명</div>`:''}
+  </div>`;
+
+  // ── OX 테이블 (듣기/독해 분리, 두 컬럼) ──
+  function oxTb(from, to, color, label){
+    const qs = Array.from({length:to-from+1},(_,i)=>from+i);
+    const half = Math.ceil(qs.length/2);
+    const left=qs.slice(0,half), right=qs.slice(half);
+    const row=q=>{
+      const v=answers[s.idx]?.[q]||'-';
+      const c=v==='O'?'#1a7a4a':v==='X'?'#c0392b':'#bbb';
+      const fw=v==='O'||v==='X'?'700':'400';
+      return `<tr>
+        <td style="padding:2px 6px;border:1px solid #eee;font-size:10px;text-align:center;color:#999">${q}</td>
+        <td style="padding:2px 6px;border:1px solid #eee;font-size:11px;text-align:center;color:${c};font-weight:${fw}">${v}</td>
+      </tr>`;
+    };
+    const tblStyle='border-collapse:collapse';
+    const thStyle=`padding:3px 6px;background:${color};color:#fff;font-size:9px;text-align:center;border:1px solid ${color}`;
+    const hdr=`<tr><th style="${thStyle}">문항</th><th style="${thStyle}">결과</th></tr>`;
+    return `
+    <div>
+      <div style="font-size:10px;font-weight:700;color:${color};margin-bottom:3px;text-align:center">${label}</div>
+      <div style="display:flex;gap:4px">
+        <table style="${tblStyle}">${hdr}${left.map(row).join('')}</table>
+        <table style="${tblStyle}">${hdr}${right.map(row).join('')}</table>
+      </div>
+    </div>`;
+  }
+  const oxHtml = opts.detail ? `
+  <div style="display:flex;gap:12px;margin-top:10px">
+    ${oxTb(1, listen, '#4472C4', `듣기 (1~${listen}번)`)}
+    ${oxTb(listen+1, total, '#E8783A', `독해 (${listen+1}~${total}번)`)}
+  </div>` : '';
+
+  // ── 성적 요약 테이블 ──
+  const summTh='padding:5px 7px;border:1px solid #3a62a8;text-align:center;font-size:10px';
+  const summTd='padding:4px 7px;border:1px solid #ddd;text-align:center;font-size:10px';
+  const summaryTable = `
+  <table style="width:100%;border-collapse:collapse">
+    <thead><tr style="background:#4472C4;color:#fff">
+      <th style="${summTh}">구분</th>
+      <th style="${summTh}">문항</th>
+      <th style="${summTh}">정답수</th>
+      <th style="${summTh}">점수</th>
+      <th style="${summTh}">점수</th>
+    </tr></thead>
+    <tbody>
+      ${opts.section?`
+      <tr>
+        <td style="${summTd};font-weight:700">듣기</td>
+        <td style="${summTd}">No.1~${listen}</td>
+        <td style="${summTd}">${lCnt}/${listen}</td>
+        <td style="${summTd}">${s.listen}/${lMax}</td>
+        <td style="${summTd};font-weight:700">${lMax>0?Math.round(s.listen/lMax*1000)/10:0}</td>
+      </tr>
+      <tr>
+        <td style="${summTd};font-weight:700">독해</td>
+        <td style="${summTd}">No.${listen+1}~${total}</td>
+        <td style="${summTd}">${rCnt}/${total-listen}</td>
+        <td style="${summTd}">${s.read}/${rMax}</td>
+        <td style="${summTd};font-weight:700">${rMax>0?Math.round(s.read/rMax*1000)/10:0}</td>
+      </tr>`:''}
+      <tr style="background:#f0f4ff">
+        <td style="${summTd};font-weight:700">종합</td>
+        <td style="${summTd}">No.1-${total}</td>
+        <td style="${summTd}">${lCnt+rCnt}/${total}</td>
+        <td style="${summTd};font-weight:700;font-size:12px">${s.total}/${tMax}</td>
+        <td style="${summTd};font-weight:700;font-size:12px">${tMax>0?Math.round(s.total/tMax*1000)/10:0}</td>
+      </tr>
+      ${opts.avg?`<tr>
+        <td style="${summTd}" colspan="2">평균 ${avg.toFixed(1)}</td>
+        <td style="${summTd}" colspan="3">표준편차 ${std.toFixed(2)}</td>
+      </tr>`:''}
+    </tbody>
+  </table>`;
+
+  // ── 차트 자리 ──
+  const chartArea = `
+  <div style="position:relative;height:150px;margin-top:8px">
+    <canvas id="chart_${s.idx}"></canvas>
+  </div>
+  <div style="display:flex;justify-content:center;align-items:center;gap:14px;font-size:9px;color:#555;margin-top:3px">
+    <span><span style="display:inline-block;width:9px;height:9px;background:#4472C4;border-radius:2px;margin-right:3px;vertical-align:middle"></span>만점</span>
+    <span><span style="display:inline-block;width:9px;height:9px;background:#E8783A;border-radius:2px;margin-right:3px;vertical-align:middle"></span>획득점수</span>
+    <b>TEST 결과</b>
+  </div>`;
+
+  // ── 문항설명 ──
+  const qDesc = {
+    1:'장소파악',2:'전화목적',3:'그림상황',4:'관계파악',5:'직업파악',
+    6:'심정파악',7:'말의목적',8:'부탁한일',9:'금액',10:'장소파악',
+    11:'언급되지않은것',12:'표일치',13:'설명대상',14:'할일',15:'상황말',
+    16:'남자응답',17:'여자응답',
+    18:'영영풀이',19:'대화 빈칸',20:'빈칸에 들어갈 전치사',
+    21:'21-22 어법',22:'21-22 어법',23:'글의목적',24:'글의 주제',
+    25:'글의 흐름(앞에 올 내용)',26:'심경',27:'내용일치',
+    28:'28-31 빈칸추론',29:'28-31 빈칸추론',30:'28-31 빈칸추론',31:'28-31 빈칸추론',
+    32:'글의 목적',33:'내용일치',34:'문장삽입',35:'문장요약',
+    36:'글의 순서',37:'글의 제목',38:'빈칸(어휘)',39:'내용이해',40:'문장삽입'
+  };
+
+  let descHtml = '';
+  if(opts.qdes){
+    const qs = Array.from({length:total},(_,i)=>i+1);
+    const half = Math.ceil(qs.length/2);
+    const dItem=q=>{
+      const v=answers[s.idx]?.[q];
+      const wrong=v==='X';
+      return `<div style="display:flex;gap:4px;padding:2px 0;border-bottom:1px dashed #eee;font-size:9px">
+        <span style="min-width:20px;font-weight:700;color:${wrong?'#c0392b':'#4472C4'}">${q}.</span>
+        <span style="color:${wrong?'#c0392b':'#555'};${wrong?'font-weight:600':''}">${qDesc[q]||''}</span>
+      </div>`;
+    };
+    descHtml=`
+    <div style="margin-top:10px;border-top:1px solid #ddd;padding-top:7px">
+      <div style="font-size:10px;font-weight:700;color:#333;margin-bottom:5px">문항설명</div>
+      <div style="display:flex;gap:14px">
+        <div style="flex:1">${qs.slice(0,half).map(dItem).join('')}</div>
+        <div style="flex:1">${qs.slice(half).map(dItem).join('')}</div>
+      </div>
+    </div>`;
+  }
+
+  // ── EiE 하단 로고 ──
+  const logo = `
+  <div style="display:flex;align-items:center;gap:10px">
+    <div style="font-family:Georgia,serif;font-style:italic;font-weight:900;font-size:28px;letter-spacing:-2px;display:flex;align-items:baseline">
+      <span style="color:#4472C4">E</span><span style="font-size:20px;color:#4472C4">i</span><span style="color:#E8783A">E</span>
+    </div>
+    <div style="border-left:1px solid #ddd;padding-left:9px;line-height:1.6">
+      <div style="font-size:8px;color:#777">Express In English</div>
+      <div style="font-size:8px;color:#777">고려대학교 영어교육 국제어학원 프로그램</div>
+    </div>
+  </div>`;
+
+  return `
+  <div style="padding:20px 24px;font-family:'Noto Sans KR',sans-serif">
+    ${header}
+    ${namebar}
+    <div style="display:flex;gap:14px;align-items:flex-start">
+      ${oxHtml}
+      <div style="flex:1;min-width:0">
+        ${summaryTable}
+        ${chartArea}
+      </div>
+    </div>
+    ${descHtml}
+    <div style="border-top:1px solid #ddd;margin-top:10px;padding-top:7px;display:flex;align-items:center;justify-content:space-between">
+      <div style="font-size:8px;color:#bbb">발행일: ${dateStr}</div>
+      ${logo}
+    </div>
+  </div>`;
+}
+
+// ─── 차트 그리기 ──────────────────────────────────────
+const chartInsts = {};
+function drawChart(s, lMax, rMax, tMax){
+  const canvas = document.getElementById('chart_'+s.idx);
+  if(!canvas) return;
+  if(chartInsts[s.idx]) chartInsts[s.idx].destroy();
+  chartInsts[s.idx] = new Chart(canvas, {
+    type:'bar',
+    data:{
+      labels:['듣기','독해','종합'],
+      datasets:[
+        {label:'만점', data:[lMax,rMax,tMax], backgroundColor:'#4472C4', borderRadius:3},
+        {label:'획득점수', data:[s.listen,s.read,s.total], backgroundColor:'#E8783A', borderRadius:3}
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        y:{min:0, max:Math.ceil(tMax/10)*10+10, ticks:{stepSize:20,font:{size:9}}, grid:{color:'#eee'}},
+        x:{ticks:{font:{size:10}}, grid:{display:false}}
+      }
+    },
+    plugins:[{
+      afterDatasetsDraw(chart){
+        const {ctx} = chart;
+        ctx.save();
+        chart.data.datasets.forEach((ds,di)=>{
+          chart.getDatasetMeta(di).data.forEach((bar,bi)=>{
+            const v=ds.data[bi];
+            ctx.fillStyle=ds.backgroundColor;
+            ctx.font='bold 9px sans-serif';
+            ctx.textAlign='center';
+            ctx.fillText(v, bar.x, bar.y-4);
+          });
+        });
+        ctx.restore();
+      }
+    }]
+  });
+}
+
+// ─── 반 전체 성적표 ──────────────────────────────────
+function buildClassReport(scored, exam, mon, grade, total, listen, lMax, rMax, tMax, avg, std, dateStr){
+  const totals = scored.map(s=>s.total);
+  const th='padding:8px 10px;font-size:11px;text-align:center';
+  const td='padding:7px 10px;border-bottom:1px solid #f0f0ec;font-size:12px;text-align:center';
+  const rows=scored.map((s,ri)=>{
+    let lc=0,rc=0;
+    for(let q=1;q<=total;q++){if(answers[s.idx]?.[q]==='O'){if(q<=listen)lc++;else rc++;}}
+    return `<tr style="${ri%2===1?'background:#fafaf8':''}">
+      <td style="${td};font-weight:700">${ri+1}</td>
+      <td style="${td};text-align:left;font-weight:600">${s.name}</td>
+      ${opts.section?`<td style="${td}">${s.listen}<span style="color:#aaa;font-size:9px">/${lMax}</span></td>
+      <td style="${td}">${s.read}<span style="color:#aaa;font-size:9px">/${rMax}</span></td>`:''}
+      <td style="${td};font-size:16px;font-weight:700;color:#1a1a1a">${s.total}</td>
+      ${opts.grade?`<td style="${td}"><span style="background:${gradeColor(s.total)};color:#fff;padding:2px 8px;border-radius:100px;font-size:10px;font-weight:700">${getGrade(s.total)}</span></td>`:''}
+      ${opts.rank?`<td style="${td}">${ri+1}위</td>`:''}
+    </tr>`;
+  }).join('');
+
+  document.getElementById('classReport').innerHTML=`
+  <div style="background:#fff;max-width:740px;margin:0 auto;padding:24px;font-family:'Noto Sans KR',sans-serif">
+    <div style="text-align:center;border-bottom:2.5px solid #1a1a1a;padding-bottom:8px;margin-bottom:16px">
+      <div style="font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px">
+        <span style="font-family:Georgia,serif;font-style:italic;font-weight:900;font-size:20px;letter-spacing:-1.5px"><span style="color:#4472C4">Ei</span><span style="color:#E8783A">E</span></span>
+        고려대학교 국제어학원 ${grade} — ${mon} ${exam} · ${selectedClass}반 성적표
+      </div>
+      <div style="font-size:11px;color:#888;margin-top:4px">${dateStr} · 응시 ${scored.length}명</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px">
+      ${['반 평균','표준편차','최고점','최저점'].map((l,i)=>{
+        const v=[avg.toFixed(1),std.toFixed(2),Math.max(...totals),Math.min(...totals)][i];
+        return `<div style="background:#f5f5f0;border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:10px;color:#888;margin-bottom:4px">${l}</div>
+          <div style="font-size:20px;font-weight:700;color:#1a1a1a">${v}</div>
+        </div>`;
+      }).join('')}
+    </div>
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr style="background:#1a1a1a;color:#fff">
+        <th style="${th}">석차</th><th style="${th};text-align:left">이름</th>
+        ${opts.section?`<th style="${th}">듣기</th><th style="${th}">독해</th>`:''}
+        <th style="${th}">총점</th>
+        ${opts.grade?`<th style="${th}">등급</th>`:''}
+        ${opts.rank?`<th style="${th}">반석차</th>`:''}
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div style="border-top:1px solid #ddd;margin-top:14px;padding-top:8px;display:flex;align-items:center;justify-content:flex-end;gap:8px">
+      <span style="font-family:Georgia,serif;font-style:italic;font-weight:900;font-size:18px;letter-spacing:-1px"><span style="color:#4472C4">Ei</span><span style="color:#E8783A">E</span></span>
+      <span style="font-size:9px;color:#aaa">Express In English · 고려대학교 영어교육 국제어학원 프로그램</span>
+    </div>
+  </div>`;
+}
+
+function gradeColor(score){
+  if(score>=90) return '#27ae60';
+  if(score>=80) return '#2980b9';
+  if(score>=70) return '#8e44ad';
+  if(score>=60) return '#e67e22';
+  return '#c0392b';
+}
+
+// ─── 인쇄 ──────────────────────────────────────────
+function printIndiv(){
+  document.getElementById('classReport').style.display='none';
+  window.print();
+  setTimeout(()=>document.getElementById('classReport').style.display='',600);
+}
+function printClass(){
+  document.getElementById('indivReports').style.display='none';
+  window.print();
+  setTimeout(()=>document.getElementById('indivReports').style.display='',600);
+}
+</script>
+</body>
+</html>
